@@ -1,12 +1,32 @@
 module godunov
-  use modules, only :rk
+  use modules, only: rk
   implicit none
   
   contains
   
-  function flux_godunov() result(flux)
+  
+  function flux_godunov(AK,CP,P1,P2,R1,R2,U1,U2,UDOT) result(flux)
+  real(kind=rk), intent(in):: AK,CP,P1,P2,R1,R2,U1,U2,UDOT
+  real(kind=rk)  		   :: UBIG,PBIG,RBIG1,RBIG2,DL1,DL2,DP1,DP2
+  real(kind=rk)			   :: Pf, Uf, Rf, CV, RM
+  real(kind=rk)			   :: flux(3)
+  
+  RM=CP*(1.0-1.0/AK)
+  CV=CP-RM
+	
+  call RASPAD(AK,P1,R1,U1,P2,R2,U2,    &
+				PBIG,UBIG,RBIG1,RBIG2,DL1,DL2,DP1,DP2)
+  call POTOK(AK,P1,R1,U1,P2,R2,U2,     & 
+                PBIG,UBIG,RBIG1,RBIG2, &
+                DL1,DL2,DP1,DP2,UDOT,  &
+                Pf,Uf,Rf)
+
+  flux(1) = Rf*Uf
+  flux(2) = Rf*Uf*Uf + Pf
+  flux(3) = Rf*Uf* (CP*Pf/(Rf*RM)+Uf*Uf/2) 
   
   end function
+  
   
   subroutine RASPAD(AK,P1,R1,U1,P2,R2,U2, &
                   PBIG,UBIG,RBIG1,RBIG2,DL1,DL2,DP1,DP2)
@@ -27,7 +47,7 @@ module godunov
   real(kind=rk)				  :: AK1,AK2,C1,C2,ST1,ST2,A1,A2,C2Z,C1Z,PI,EPSP,EPS
   real(kind=rk)				  :: PBIGN
 
-      REAL,EXTERNAL :: FGOD,DIVFGOD
+!      REAL,EXTERNAL :: FGOD,DIVFGOD
 
       EPSP=1.0E-8
       EPS=1.0E-8
@@ -47,8 +67,8 @@ module godunov
       FLAG=.FALSE.
       PBIG=(P1*R2*C2+P2*R1*C1+(U1-U2)*R1*C1*R2*C2)/(R1*C1+R2*C2)
       IF (PBIG<0.0) PBIG=1.0E-05
-1     PBIGN=PBIG-(FGOD(PBIG,P1,R1,AK1)+FGOD(PBIG,P2,R2,AK2)-(U1-U2))/
-     .           (DIVFGOD(PBIG,P1,R1,AK1)+DIVFGOD(PBIG,P2,R2,AK2))
+1     PBIGN=PBIG-(FGOD(PBIG,P1,R1,AK1)+FGOD(PBIG,P2,R2,AK2)-(U1-U2))/ &
+				(DIVFGOD(PBIG,P1,R1,AK1)+DIVFGOD(PBIG,P2,R2,AK2))
             
       IF (PBIGN<0.0) THEN
         WRITE (*,*) PBIG,FLAG
@@ -102,12 +122,13 @@ module godunov
         DP2=U2+C2
         DP1=UBIG+C2Z
       ENDIF
+      
+	end subroutine RASPAD
 
-      RETURN
-      END
 
-      REAL function FGOD(PBIG,P,R,AK)
-      REAL PBIG,P,R,AK,PI,ST
+  function FGOD(PBIG,P,R,AK)
+  real(kind=rk),intent(in):: PBIG,P,R,AK
+  real(kind=rk)			  :: PI,ST,FGOD
 
       PI=PBIG/P
       ST=0.5*(AK-1.0)/AK
@@ -116,46 +137,45 @@ module godunov
       ELSE
         FGOD=2.0/(AK-1.0)*SQRT(AK*P/R)*(PI**ST-1.0)
       ENDIF
-      RETURN
-      END
+  end function FGOD
 
-      REAL function DIVFGOD(PBIG,P,R,AK)
-      REAL PBIG,P,R,AK,PI,ST
+
+  function DIVFGOD(PBIG,P,R,AK)
+  real(kind=rk),intent(in):: PBIG,P,R,AK
+  real(kind=rk)			  :: PI,ST,DIVFGOD  
       
       PI=PBIG/P
       ST=0.5*(AK-1.0)/AK
       IF (PI.GE.1.0) THEN
-        DIVFGOD=((AK+1.0)*PI+(3.0*AK-1.0))
-     .          /(4.0*AK*R*SQRT(AK*P/R)*
-     .   SQRT((0.5*(AK+1.0)/AK*PI+0.5*(AK-1.0)/AK)**3))
+        DIVFGOD=((AK+1.0)*PI+(3.0*AK-1.0)) &
+                /(4.0*AK*R*SQRT(AK*P/R)*   &
+         SQRT((0.5*(AK+1.0)/AK*PI+0.5*(AK-1.0)/AK)**3))
       ELSE
          DIVFGOD=1.0/AK/PBIG*SQRT(AK*P/R)*PI**ST
       ENDIF
-      RETURN
-      END
+  end function DIVFGOD
 
 
-      subroutine POTOK(AK,P1,R1,U1,P2,R2,U2,
-     .                 PBIG,UBIG,RBIG1,RBIG2,
-     .                 DL1,DL2,DP1,DP2,UDOT,
-     .                 Pf,Uf,Rf)
-      IMPLICIT NONE   
-*
-* INPUT 
-*
-      REAL AK,P1,R1,U1,P2,R2,U2,UDOT
-      REAL PBIG,UBIG                 ! parameters on contact surface
-      REAL RBIG1,RBIG2               ! density right and left of the surface
-      REAL DL1,DL2,DP1,DP2           ! speed of characteristics
-*      
-* OUTPUT 
-*
-      REAL Pf,Uf,Rf
-*
-* LOCALS
-*
-      REAL AK1,AK2,A1,A2
-      REAL CZJM,CZJP,CZT
+  subroutine POTOK(AK,P1,R1,U1,P2,R2,U2, 	  &
+                      PBIG,UBIG,RBIG1,RBIG2, &
+                      DL1,DL2,DP1,DP2,UDOT,  &
+                      Pf,Uf,Rf) 
+!
+! INPUT 
+!
+  real(kind=rk),intent(in)   :: AK,P1,R1,U1,P2,R2,U2,UDOT
+  real(kind=rk),intent(in)   :: PBIG,UBIG                 ! parameters on contact surface
+  real(kind=rk),intent(in)   :: RBIG1,RBIG2               ! density right and left of the surface
+  real(kind=rk),intent(in)   :: DL1,DL2,DP1,DP2           ! speed of characteristics
+!      
+! OUTPUT 
+!
+  real(kind=rk),intent(inout):: Pf,Uf,Rf
+!
+! LOCALS
+!
+  real(kind=rk)              :: AK1,AK2
+  real(kind=rk)			     :: CZJM,CZJP,CZT
 
       AK1=AK
       AK2=AK
@@ -219,8 +239,7 @@ module godunov
       
       endif
       
-      return
-      end
+  end subroutine POTOK
   
 
 end module godunov
