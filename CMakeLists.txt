@@ -21,3 +21,5 @@ set(CMAKE_Fortran_MODULE_DIRECTORY ${PROJECT_BINARY_DIR}/include)
 
 add_subdirectory(src)
 
+enable_testing()
+add_subdirectory(tests)

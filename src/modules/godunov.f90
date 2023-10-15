@@ -7,15 +7,15 @@ module godunov
   
   function flux_godunov(AK,CP,P1,P2,R1,R2,U1,U2,UDOT) result(flux)
   real(kind=rk), intent(in):: AK,CP,P1,P2,R1,R2,U1,U2,UDOT
-  real(kind=rk)  		   :: UBIG,PBIG,RBIG1,RBIG2,DL1,DL2,DP1,DP2
-  real(kind=rk)			   :: Pf, Uf, Rf, CV, RM
-  real(kind=rk)			   :: flux(3)
+  real(kind=rk)            :: UBIG,PBIG,RBIG1,RBIG2,DL1,DL2,DP1,DP2
+  real(kind=rk)            :: Pf, Uf, Rf, CV, RM
+  real(kind=rk)            :: flux(3)
   
   RM=CP*(1.0-1.0/AK)
   CV=CP-RM
-	
+    
   call RASPAD(AK,P1,R1,U1,P2,R2,U2,    &
-				PBIG,UBIG,RBIG1,RBIG2,DL1,DL2,DP1,DP2)
+                PBIG,UBIG,RBIG1,RBIG2,DL1,DL2,DP1,DP2)
   call POTOK(AK,P1,R1,U1,P2,R2,U2,     & 
                 PBIG,UBIG,RBIG1,RBIG2, &
                 DL1,DL2,DP1,DP2,UDOT,  &
@@ -25,7 +25,7 @@ module godunov
   flux(2) = Rf*Uf*Uf + Pf
   flux(3) = Rf*Uf* (CP*Pf/(Rf*RM)+Uf*Uf/2) 
   
-  end function
+  end function flux_godunov
   
   
   subroutine RASPAD(AK,P1,R1,U1,P2,R2,U2, &
@@ -43,9 +43,9 @@ module godunov
 !
 ! LOCALS
 !
-  logical					  :: FLAG
-  real(kind=rk)				  :: AK1,AK2,C1,C2,ST1,ST2,A1,A2,C2Z,C1Z,PI,EPSP,EPS
-  real(kind=rk)				  :: PBIGN
+  logical                     :: FLAG
+  real(kind=rk)               :: AK1,AK2,C1,C2,ST1,ST2,A1,A2,C2Z,C1Z,PI,EPSP,EPS
+  real(kind=rk)               :: PBIGN
 
 !      REAL,EXTERNAL :: FGOD,DIVFGOD
 
@@ -68,7 +68,7 @@ module godunov
       PBIG=(P1*R2*C2+P2*R1*C1+(U1-U2)*R1*C1*R2*C2)/(R1*C1+R2*C2)
       IF (PBIG<0.0) PBIG=1.0E-05
 1     PBIGN=PBIG-(FGOD(PBIG,P1,R1,AK1)+FGOD(PBIG,P2,R2,AK2)-(U1-U2))/ &
-				(DIVFGOD(PBIG,P1,R1,AK1)+DIVFGOD(PBIG,P2,R2,AK2))
+                (DIVFGOD(PBIG,P1,R1,AK1)+DIVFGOD(PBIG,P2,R2,AK2))
             
       IF (PBIGN<0.0) THEN
         WRITE (*,*) PBIG,FLAG
@@ -123,12 +123,12 @@ module godunov
         DP1=UBIG+C2Z
       ENDIF
       
-	end subroutine RASPAD
+    end subroutine RASPAD
 
 
   function FGOD(PBIG,P,R,AK)
   real(kind=rk),intent(in):: PBIG,P,R,AK
-  real(kind=rk)			  :: PI,ST,FGOD
+  real(kind=rk)           :: PI,ST,FGOD
 
       PI=PBIG/P
       ST=0.5*(AK-1.0)/AK
@@ -142,7 +142,7 @@ module godunov
 
   function DIVFGOD(PBIG,P,R,AK)
   real(kind=rk),intent(in):: PBIG,P,R,AK
-  real(kind=rk)			  :: PI,ST,DIVFGOD  
+  real(kind=rk)           :: PI,ST,DIVFGOD  
       
       PI=PBIG/P
       ST=0.5*(AK-1.0)/AK
@@ -156,7 +156,7 @@ module godunov
   end function DIVFGOD
 
 
-  subroutine POTOK(AK,P1,R1,U1,P2,R2,U2, 	  &
+  subroutine POTOK(AK,P1,R1,U1,P2,R2,U2,      &
                       PBIG,UBIG,RBIG1,RBIG2, &
                       DL1,DL2,DP1,DP2,UDOT,  &
                       Pf,Uf,Rf) 
@@ -175,7 +175,7 @@ module godunov
 ! LOCALS
 !
   real(kind=rk)              :: AK1,AK2
-  real(kind=rk)			     :: CZJM,CZJP,CZT
+  real(kind=rk)              :: CZJM,CZJP,CZT
 
       AK1=AK
       AK2=AK
