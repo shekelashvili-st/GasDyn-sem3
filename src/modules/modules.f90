@@ -51,14 +51,31 @@ module modules
   end subroutine boundary_walls
   
   
+  subroutine init_meshgeom(L,nx,dx,x_cent,x_f,sigma_f,omega)
+  real(kind=rk),intent(in)    :: L
+  integer,intent(in)          :: nx
+  real(kind=rk),intent(out)   :: dx, x_cent(0:), x_f(:), sigma_f(:), omega(0:)
+  integer                     :: i
+  
+  dx            = L/nx  
+  x_cent        = [(dx*(i+0.5_rk), i=-1,nx)]
+  x_f           = [(dx*i, i=0,nx)]
+  sigma_f       = cross_area(x_f,L)
+  !Объём как площадь трапеции
+  omega(1:nx)   = (sigma_f(1:nx)+sigma_f(2:nx+1))/2 * dx
+  omega(0)      = 0 ; omega(nx+1)       = 0
+  
+  
+  end subroutine init_meshgeom
+  
   elemental function cross_area(x,L) result(res)
   real(kind=rk),intent(in) :: x, L
   real(kind=rk)            :: res
-  real(kind=rk),parameter  :: alpha = 12, pi=atan(1.0_rk)
+  real(kind=rk),parameter  :: alpha = 5.7106, pi=4*atan(1.0_rk)
   
-  res = 2*x*tan(alpha*pi/180)+L/10
+  res = 2*x*tan(alpha*pi/180)+L
   
   end function cross_area
-
-
+  
+  
 end module modules
