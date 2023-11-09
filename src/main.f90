@@ -1,14 +1,14 @@
 program main
   use modules, only : rk, init_meshgeom, init_Riemann, boundary_walls 
-  use io, only      : output_field
+  use io, only      : output_field, output_monitor
   use godunov, only : flux_godunov
   implicit none
   
   !Parameters
-  character(*),parameter   :: input_file='params.nml'
+  character(*),parameter   :: input_file='params.nml', monitor_file='mon.dat'
   real(kind=rk)            :: L, adi_k, c_P, dt
   real(kind=rk)            :: U_L, U_R, rho_L, rho_R, p_L, p_R
-  integer                  :: nx, nt, L_size
+  integer                  :: nx, nt, L_size, imon
   !Work arrays & variables
   real(kind=rk),allocatable:: x_cent(:), omega(:), u(:), rho(:), p(:), T(:)
   real(kind=rk),allocatable:: x_f(:), sigma_f(:)
@@ -28,8 +28,9 @@ program main
   open(newunit=iu, file=input_file)
   read(iu, nml=params)
   close(iu)  
-  R_m = C_p * (1-1.0_rk/adi_k)
-  C_v = C_p - R_m
+  imon = L_size/2
+  R_m  = C_p * (1-1.0_rk/adi_k)
+  C_v  = C_p - R_m
   
   !Prepare work arrays, set initial conditions
   allocate(x_cent(0:nx+1),omega(0:nx+1),u(0:nx+1),rho(0:nx+1),p(0:nx+1),T(0:nx+1))
@@ -46,6 +47,8 @@ program main
 
   !Output initial field
   call output_field(x_cent,u,rho,p,T,'init.dat')  
+  !Open monitor file
+  open(newunit=iu,file=monitor_file)
   
   !Solve equation
   time: do k = 1, nt
@@ -72,11 +75,14 @@ program main
     u   = w_n(2,:)/rho
     T   = (w_n(3,:)/rho-u**2/2)/C_v
     p   = R_m * T * rho
-    call boundary_walls(u,rho,p,T,adi_k,C_p)    
+    call boundary_walls(u,rho,p,T,adi_k,C_p)
+    !Monitor points
+    call output_monitor(iu,imon,k*dt,u,rho,p,T)
   end do time
   
   !Output solution
   call output_field(x_cent,u,rho,p,T,'sol.dat')
-  
+  !Close monitor file
+  close(iu)
 
 end program main

@@ -17,4 +17,14 @@ module io
  
   end subroutine output_field
   
+  
+  subroutine output_monitor(iu,i_x,Time,u,rho,p,T)
+  integer,intent(in)       :: iu, i_x
+  real(kind=rk),intent(in) :: Time
+  real(kind=rk),intent(in) :: u(0:), rho(0:), p(0:), T(0:)
+  
+  write(iu,'(5(es23.16,x))') Time, u(i_x), rho(i_x), p(i_x), T(i_x)
+  
+  end subroutine output_monitor
+  
 end module io

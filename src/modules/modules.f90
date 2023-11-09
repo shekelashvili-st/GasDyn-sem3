@@ -71,7 +71,7 @@ module modules
   elemental function cross_area(x,L) result(res)
   real(kind=rk),intent(in) :: x, L
   real(kind=rk)            :: res
-  real(kind=rk),parameter  :: alpha = 5.7106, pi=4*atan(1.0_rk)
+  real(kind=rk),parameter  :: alpha = 0.0_rk, pi=4*atan(1.0_rk)
   
   res = 2*x*tan(alpha*pi/180)+L
   
