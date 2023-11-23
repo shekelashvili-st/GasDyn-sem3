@@ -2,13 +2,14 @@ program main
   use modules, only : rk, init_meshgeom, init_Riemann, boundary_walls 
   use io, only      : output_field, output_monitor
   use godunov, only : flux_godunov
+  use vanleer, only : flux_vanleer
   implicit none
   
   !Parameters
   character(*),parameter   :: input_file='params.nml', monitor_file='mon.dat'
   real(kind=rk)            :: L, adi_k, c_P, dt
   real(kind=rk)            :: U_L, U_R, rho_L, rho_R, p_L, p_R
-  integer                  :: nx, nt, L_size, imon
+  integer                  :: nx, nt, L_size, imon, mon_tstep
   !Work arrays & variables
   real(kind=rk),allocatable:: x_cent(:), omega(:), u(:), rho(:), p(:), T(:)
   real(kind=rk),allocatable:: x_f(:), sigma_f(:)
@@ -18,12 +19,15 @@ program main
   real(kind=rk)            :: C_v, R_m
   !Service variables
   integer                  :: i, k, iu
+  !Procedure pointer
+  procedure(flux_godunov),pointer:: flux=>flux_vanleer
+  
  
   !/////////////////////////////////////////////////////////// 
   !Read input data
-  namelist /params/ L, adi_k, c_p,          &
-                    nx, nt, dt, L_size,     &
-                    U_L, U_R, rho_L, rho_R, &
+  namelist /params/ L, adi_k, c_p,                    &
+                    nx, nt, dt, L_size, mon_tstep,    &
+                    U_L, U_R, rho_L, rho_R,           &
                     p_L, p_R                    
   open(newunit=iu, file=input_file)
   read(iu, nml=params)
@@ -66,8 +70,8 @@ program main
     !Solve for conservative variables
     do i=1, nx
         w_n(:,i) = w(:,i) - dt/omega(i) * &
-            (flux_godunov(adi_k,C_p,p(i),p(i+1),rho(i),rho(i+1),u(i),u(i+1),0.0_rk)*sigma_f(i+1)   &
-           - flux_godunov(adi_k,C_p,p(i-1),p(i),rho(i-1),rho(i),u(i-1),u(i),0.0_rk)*sigma_f(i))    &
+            (flux(adi_k,C_p,p(i),p(i+1),rho(i),rho(i+1),u(i),u(i+1),0.0_rk)*sigma_f(i+1)   &
+           - flux(adi_k,C_p,p(i-1),p(i),rho(i-1),rho(i),u(i-1),u(i),0.0_rk)*sigma_f(i))    &
            - dt/omega(i) * RHS(:,i)
     end do
     !Physical variables
@@ -77,7 +81,7 @@ program main
     p   = R_m * T * rho
     call boundary_walls(u,rho,p,T,adi_k,C_p)
     !Monitor points
-    call output_monitor(iu,imon,k*dt,u,rho,p,T)
+    if (mod(k,mon_tstep) == 0) call output_monitor(iu,imon,k*dt,u,rho,p,T)
   end do time
   
   !Output solution
