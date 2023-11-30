@@ -1,12 +1,14 @@
 program main
-  use modules, only : rk, init_meshgeom, init_Riemann, boundary_walls 
+  use modules, only : rk, init_meshgeom, init_Riemann, boundary_walls, boundary_grad
   use io, only      : output_field, output_monitor
   use godunov, only : flux_godunov
   use vanleer, only : flux_vanleer
   implicit none
   
   !Parameters
-  character(*),parameter   :: input_file='params.nml', monitor_file='mon.dat'
+  character(*),parameter   :: input_file='params.nml', monitor_file='_mon.dat', output_file='_sol.dat'
+  character(len=30)        :: start_file
+  integer                  :: scheme, grani
   real(kind=rk)            :: L, adi_k, c_P, dt
   real(kind=rk)            :: U_L, U_R, rho_L, rho_R, p_L, p_R
   integer                  :: nx, nt, L_size, imon, mon_tstep
@@ -20,18 +22,29 @@ program main
   !Service variables
   integer                  :: i, k, iu
   !Procedure pointer
-  procedure(flux_godunov),pointer:: flux=>flux_vanleer
+  procedure(flux_godunov),pointer   :: flux=>flux_godunov
+  procedure(boundary_walls),pointer :: boundary=>boundary_walls
   
  
   !/////////////////////////////////////////////////////////// 
   !Read input data
-  namelist /params/ L, adi_k, c_p,                    &
-                    nx, nt, dt, L_size, mon_tstep,    &
+  namelist /params/ start_file, mon_tstep, scheme, grani 
+  namelist /params_zad/ L, adi_k, c_p,                &
+                    nx, nt, dt, L_size,               &
                     U_L, U_R, rho_L, rho_R,           &
                     p_L, p_R                    
   open(newunit=iu, file=input_file)
   read(iu, nml=params)
-  close(iu)  
+  close(iu)
+  print*, (trim(start_file) // ".nml")
+  open(newunit=iu, file=(trim(start_file) // ".nml"))
+  read(iu, nml=params_zad)
+  close(iu)
+  
+  !Set scheme and boundary conditions
+  if (scheme==2) flux=>flux_vanleer
+  if (grani==2)  boundary=>boundary_grad
+  
   imon = L_size/2
   R_m  = C_p * (1-1.0_rk/adi_k)
   C_v  = C_p - R_m
@@ -47,12 +60,10 @@ program main
   call init_Riemann(u,rho,p,T,                          &
                     L_size,U_L,U_R,rho_L,rho_R,p_L,p_R, &
                     adi_k,C_p)
-  call boundary_walls(u,rho,p,T,adi_k,C_p)
-
-  !Output initial field
-  call output_field(x_cent,u,rho,p,T,'init.dat')  
+  call boundary(u,rho,p,T,adi_k,C_p)
+  
   !Open monitor file
-  open(newunit=iu,file=monitor_file)
+  open(newunit=iu,file=(trim(start_file) // monitor_file))
   
   !Solve equation
   time: do k = 1, nt
@@ -79,13 +90,13 @@ program main
     u   = w_n(2,:)/rho
     T   = (w_n(3,:)/rho-u**2/2)/C_v
     p   = R_m * T * rho
-    call boundary_walls(u,rho,p,T,adi_k,C_p)
+    call boundary(u,rho,p,T,adi_k,C_p)
     !Monitor points
     if (mod(k,mon_tstep) == 0) call output_monitor(iu,imon,k*dt,u,rho,p,T)
   end do time
   
   !Output solution
-  call output_field(x_cent,u,rho,p,T,'sol.dat')
+  call output_field(x_cent,u,rho,p,T,trim(start_file) // output_file)
   !Close monitor file
   close(iu)
 

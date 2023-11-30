@@ -50,6 +50,29 @@ module modules
   
   end subroutine boundary_walls
   
+  subroutine boundary_grad(u,rho,p,T,adi_k,C_p)
+  real(kind=rk),intent(inout) :: u(0:), rho(0:), p(0:), T(0:)
+  real(kind=rk),intent(in)    :: adi_k, C_p
+  integer                     :: nx
+  real(kind=rk)               :: R_m
+  
+  nx  = size(u)-2
+  R_m = C_p*(1-1.0_rk/adi_k)
+  
+  !По скорости - нулевой градиент на грани
+  u(0)      = u(1)
+  u(nx+1)   = u(nx)
+  !По давлению - нулевой градиент
+  p(0)      = p(1)
+  p(nx+1)   = p(nx)
+  !По плотности - нулевой градиент
+  rho(0)    = rho(1)
+  rho(nx+1) = rho(nx)
+  !По температуре - расчёт из плотности, давления
+  T         = p/(rho*R_m)
+  
+  end subroutine boundary_grad
+  
   
   subroutine init_meshgeom(L,nx,dx,x_cent,x_f,sigma_f,omega)
   real(kind=rk),intent(in)    :: L
