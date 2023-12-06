@@ -3,12 +3,13 @@ program main
   use io, only      : output_field, output_monitor
   use godunov, only : flux_godunov
   use vanleer, only : flux_vanleer
+  use TVD, only     : reconst
   implicit none
   
   !Parameters
   character(*),parameter   :: input_file='params.nml', monitor_file='_mon.dat', output_file='_sol.dat'
   character(len=30)        :: start_file
-  integer                  :: scheme, grani
+  integer                  :: scheme, grani, tvdim=0
   real(kind=rk)            :: L, adi_k, c_P, dt
   real(kind=rk)            :: U_L, U_R, rho_L, rho_R, p_L, p_R
   real(kind=rk)            :: freq, h
@@ -20,6 +21,7 @@ program main
   real(kind=rk)            :: u_p=0, dx
   !Local variables
   real(kind=rk)            :: C_v, R_m
+  real(kind=rk)            :: p_tilde(4), u_tilde(4), rho_tilde(4)
   !Service variables
   integer                  :: i, k, iu
   !Procedure pointers
@@ -29,7 +31,7 @@ program main
  
   !/////////////////////////////////////////////////////////// 
   !Read input data
-  namelist /params/ start_file, mon_tstep, scheme, grani 
+  namelist /params/ start_file, mon_tstep, scheme, grani, tvdim 
   namelist /params_zad/ L, adi_k, c_p,                &
                     nx, nt, dt, L_size,               &
                     U_L, U_R, rho_L, rho_R,           &
@@ -80,13 +82,34 @@ program main
     RHS(1,:) = 0
     RHS(2,:) = p*(sigma_f(1:nx)-sigma_f(2:nx+1))
     RHS(3,:) = 0
+    
     !Solve for conservative variables
-    do i=1, nx
-        w_n(:,i) = w(:,i) - dt/omega(i) * &
-            (flux(adi_k,C_p,p(i),p(i+1),rho(i),rho(i+1),u(i),u(i+1),0.0_rk)*sigma_f(i+1)   &
-           - flux(adi_k,C_p,p(i-1),p(i),rho(i-1),rho(i),u(i-1),u(i),0.0_rk)*sigma_f(i))    &
-           - dt/omega(i) * RHS(:,i)
-    end do
+    w_n(:,1) = w(:,1) - dt/omega(1) * &
+        (flux(adi_k,C_p,p(1),p(2),rho(1),rho(2),u(1),u(2),0.0_rk)*sigma_f(2)   &
+       - flux(adi_k,C_p,p(0),p(1),rho(0),rho(1),u(0),u(1),0.0_rk)*sigma_f(1))  &
+       - dt/omega(1) * RHS(:,1)
+    !TVD/non-TVD scheme far from boundaries
+    if (tvdim==1) then
+        do i=2, nx-1
+            call reconst(p(i-2:i+2),rho(i-2:i+2),u(i-2:i+2),p_tilde, u_tilde, rho_tilde)
+            w_n(:,i) = w(:,i) - dt/omega(i) * &
+                (flux(adi_k,C_p,p_tilde(3),p_tilde(4),rho_tilde(3),rho_tilde(4),u_tilde(3),u_tilde(4),0.0_rk)*sigma_f(i+1)   &
+                - flux(adi_k,C_p,p_tilde(1),p_tilde(2),rho_tilde(1),rho_tilde(2),u_tilde(1),u_tilde(2),0.0_rk)*sigma_f(i))    &
+                - dt/omega(i) * RHS(:,i)
+        end do
+    else
+        do i=2, nx-1
+            w_n(:,i) = w(:,i) - dt/omega(i) * &
+                (flux(adi_k,C_p,p(i),p(i+1),rho(i),rho(i+1),u(i),u(i+1),0.0_rk)*sigma_f(i+1)   &
+            - flux(adi_k,C_p,p(i-1),p(i),rho(i-1),rho(i),u(i-1),u(i),0.0_rk)*sigma_f(i))    &
+            - dt/omega(i) * RHS(:,i)
+        end do
+    end if
+    w_n(:,nx) = w(:,nx) - dt/omega(nx) * &
+        (flux(adi_k,C_p,p(nx),p(nx+1),rho(nx),rho(nx+1),u(nx),u(nx+1),0.0_rk)*sigma_f(nx+1)   &
+       - flux(adi_k,C_p,p(nx-1),p(nx),rho(nx-1),rho(nx),u(nx-1),u(nx),0.0_rk)*sigma_f(nx))    &
+       - dt/omega(nx) * RHS(:,nx)
+       
     !Physical variables
     rho = w_n(1,:)
     u   = w_n(2,:)/rho
