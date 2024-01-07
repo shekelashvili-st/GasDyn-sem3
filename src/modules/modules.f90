@@ -25,7 +25,17 @@ module modules
   T = p/(rho*R_m)
   
   end subroutine init_Riemann
+
+  function max_vel(u,rho,p,adi_k)
+  real(kind=rk)               :: max_vel
+  real(kind=rk),intent(in)    :: adi_k
+  real(kind=rk),intent(in)    :: u(0:), rho(0:), p(0:)
+  integer                     :: nx
   
+  nx = size(u)-2
+  max_vel = maxval(abs(u(1:nx))+sqrt(adi_k*p(1:nx)/rho(1:nx)))
+  
+  end function max_vel  
   
   subroutine boundary_walls(u,rho,p,T,adi_k,C_p,u_p)
   real(kind=rk),intent(inout) :: u(0:), rho(0:), p(0:), T(0:)

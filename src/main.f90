@@ -1,5 +1,5 @@
 program main
-  use modules, only : rk, init_meshgeom, init_Riemann, boundary_walls, boundary_grad, boundary_movewalls
+  use modules, only : rk, init_meshgeom, init_Riemann, max_vel, boundary_walls, boundary_grad, boundary_movewalls
   use io, only      : output_field, output_monitor
   use godunov, only : flux_godunov
   use vanleer, only : flux_vanleer
@@ -10,7 +10,7 @@ program main
   character(*),parameter   :: input_file='params.nml', monitor_file='_mon.dat', output_file='_sol.dat'
   character(len=30)        :: start_file
   integer                  :: scheme, grani, tvdim=0
-  real(kind=rk)            :: L, adi_k, c_P, dt
+  real(kind=rk)            :: L, adi_k, c_P, CFL, dt, t_stop
   real(kind=rk)            :: U_L, U_R, rho_L, rho_R, p_L, p_R
   real(kind=rk)            :: freq, h
   integer                  :: nx, nt, L_size, imon, mon_tstep
@@ -20,7 +20,7 @@ program main
   real(kind=rk),allocatable:: w(:,:), w_n(:,:), F(:,:), RHS(:,:)  
   real(kind=rk)            :: u_p=0, dx
   !Local variables
-  real(kind=rk)            :: C_v, R_m
+  real(kind=rk)            :: C_v, R_m, total_t=0
   real(kind=rk)            :: p_tilde(4), u_tilde(4), rho_tilde(4)
   !Service variables
   integer                  :: i, k, iu
@@ -33,7 +33,7 @@ program main
   !Read input data
   namelist /params/ start_file, mon_tstep, scheme, grani, tvdim 
   namelist /params_zad/ L, adi_k, c_p,                &
-                    nx, nt, dt, L_size,               &
+                    nx, nt, CFL, t_stop, L_size,      &
                     U_L, U_R, rho_L, rho_R,           &
                     p_L, p_R, freq, h                    
   open(newunit=iu, file=input_file)
@@ -71,6 +71,16 @@ program main
   
   !Solve equation
   time: do k = 1, nt
+    if (total_t==t_stop) exit
+    !Calculate time step
+    dt = CFL * dx/max_vel(u,rho,p,adi_k)
+    if (k<=5) dt = 0.2*dt
+    total_t = total_t + dt
+    if (total_t>t_stop) then
+        dt = dt - (total_t-t_stop)
+        total_t = t_stop
+    end if
+    print*, 'Step=', k, 'dt=', dt, 'Time=', total_t, 'Max velocity=', max_vel(u,rho,p,adi_k)
     !Conservative variables
     w(1,:)   = rho
     w(2,:)   = rho * u
@@ -117,7 +127,10 @@ program main
     p   = R_m * T * rho
     call boundary(u,rho,p,T,adi_k,C_p,u_p)
     !Monitor points
-    if (mod(k,mon_tstep) == 0) call output_monitor(iu,imon,k*dt,u,rho,p,T)
+    if (mod(k,mon_tstep) == 0) then
+        if (any(isnan(u))) stop 'Error:NaN'
+        call output_monitor(iu,imon,total_t,u,rho,p,T)
+    end if
   end do time
   
   !Output solution
