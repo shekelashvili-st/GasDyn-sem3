@@ -7,12 +7,13 @@ module vanleer
   
   function flux_vanleer(AK,CP,P1,P2,R1,R2,U1,U2,UDOT) result(flux)
   real(kind=rk), intent(in):: AK,CP,P1,P2,R1,R2,U1,U2,UDOT
-  real(kind=rk)            :: flux(3)
+  real(kind=rk)            :: flux(3), w(3)
   real(kind=rk)            :: fl_plus(3), fl_minus(3) !Pf, Uf, Rf
-  real(kind=rk)            :: RM, C1, C2, M1, M2
+  real(kind=rk)            :: RM, CV, C1, C2, M1, M2
   
   
   RM=CP*(1.0-1.0/AK)
+  CV=CP-RM
   !Calculate speed of sound and M
   C1 = SQRT(AK*P1/R1); M1 = U1/C1
   C2 = SQRT(AK*P2/R2); M2 = U2/C2
@@ -46,7 +47,10 @@ module vanleer
   end if
   
   !Calculate F on cell face (i+1/2)
-  flux = fl_plus + fl_minus
+  w(1)   = (R1 + R2)/2
+  w(2)   = (R1*U1 + R2*U2)/2
+  w(3)   = (R1*(CV*P1/(R1*RM) + U1**2/2) + R2*(CV*P2/(R2*RM) + U2**2/2))/2
+  flux   = fl_plus + fl_minus - UDOT * w
  
   end function flux_vanleer
   
