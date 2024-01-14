@@ -130,10 +130,15 @@ module modules
   elemental function cross_area(x,L) result(res)
   real(kind=rk),intent(in) :: x, L
   real(kind=rk)            :: res
-  real(kind=rk),parameter  :: alpha = 0.0_rk, pi=4*atan(1.0_rk)
+!  real(kind=rk),parameter  :: alpha = 0.0_rk, pi=4*atan(1.0_rk)
+  real(kind=rk),parameter  :: xa = 0.49, xb = 0.8
+  real(kind=rk),parameter  :: wallr=1, a=-33.5671847202175, b=64.9525024336209, c=-39.4750092309758, d=8.19680440401464
   
-  res = 2*x*tan(alpha*pi/180)+L
-  
+!  res = 2*x*tan(alpha*pi/180)+L
+  res = L/2
+!  if (x>xb) res = wallr
+!  if (x>xa.and.x<xb) res = (a*x**3 + b*x**2 + c*x + d)
+  res = res*2
   end function cross_area
   
   
