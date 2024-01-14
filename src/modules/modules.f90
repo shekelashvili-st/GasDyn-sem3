@@ -37,10 +37,10 @@ module modules
   
   end function max_vel  
   
-  subroutine boundary_walls(u,rho,p,T,adi_k,C_p,u_p)
+  subroutine boundary_walls(u,rho,p,T,adi_k,C_p,u_l)
   real(kind=rk),intent(inout) :: u(0:), rho(0:), p(0:), T(0:)
   real(kind=rk),intent(in)    :: adi_k, C_p
-  real(kind=rk),intent(in)    :: u_p
+  real(kind=rk),intent(in)    :: u_l
   integer                     :: nx
   real(kind=rk)               :: R_m
   
@@ -61,10 +61,10 @@ module modules
   
   end subroutine boundary_walls
   
-  subroutine boundary_movewalls(u,rho,p,T,adi_k,C_p,u_p)
+  subroutine boundary_moveleft(u,rho,p,T,adi_k,C_p,u_l)
   real(kind=rk),intent(inout) :: u(0:), rho(0:), p(0:), T(0:)
   real(kind=rk),intent(in)    :: adi_k, C_p
-  real(kind=rk),intent(in)    :: u_p
+  real(kind=rk),intent(in)    :: u_l
   integer                     :: nx
   real(kind=rk)               :: R_m
   
@@ -72,8 +72,8 @@ module modules
   R_m = C_p*(1-1.0_rk/adi_k)
   
   !По скорости - скорость поршня на грани
-  u(0)      = 2*u_p-u(1)
-  u(nx+1)   = -2*u_p-u(nx)
+  u(0)      = 2*u_l-u(1)
+  u(nx+1)   = -u(nx)
   !По давлению - нулевой градиент
   p(0)      = p(1)
   p(nx+1)   = p(nx)
@@ -83,12 +83,12 @@ module modules
   !По температуре - расчёт из плотности, давления
   T         = p/(rho*R_m)
   
-  end subroutine boundary_movewalls
+  end subroutine boundary_moveleft
   
-  subroutine boundary_grad(u,rho,p,T,adi_k,C_p,u_p)
+  subroutine boundary_grad(u,rho,p,T,adi_k,C_p,u_l)
   real(kind=rk),intent(inout) :: u(0:), rho(0:), p(0:), T(0:)
   real(kind=rk),intent(in)    :: adi_k, C_p
-  real(kind=rk),intent(in)    :: u_p
+  real(kind=rk),intent(in)    :: u_l
   integer                     :: nx
   real(kind=rk)               :: R_m
   
@@ -124,8 +124,29 @@ module modules
   omega(1:nx)   = (sigma_f(1:nx)+sigma_f(2:nx+1))/2 * dx
   omega(0)      = 0 ; omega(nx+1)       = 0
   
-  
   end subroutine init_meshgeom
+  
+  
+  subroutine calc_meshgeom(x_f,sigma_f,u_f,omega,x_cent,L,u_l,u_r,dt)
+  real(kind=rk),intent(in)    :: sigma_f(:), L, u_l, u_r, dt
+  real(kind=rk),intent(inout) :: x_f(:), u_f(:), omega(0:), x_cent(0:)
+  integer                     :: i, nx
+  
+  nx = size(sigma_f)-1
+  !Расчёт скорости каждой каждой грани
+  u_f(1:nx+1) = u_l + (u_r-u_l)/L*x_f(1:nx+1)
+  !Перемещение граней
+  x_f(1:nx+1) = x_f(:) + dt*u_f(1:nx+1)
+  !Объём как площадь трапеции
+  omega(1:nx)   = (sigma_f(1:nx)+sigma_f(2:nx+1))/2 * (x_f(2:nx+1)-x_f(1:nx))
+  omega(0)      = 0 ; omega(nx+1)       = 0
+  !Центр ячейки
+  x_cent(1:nx) = (x_f(2:nx+1)+x_f(1:nx))/2
+  x_cent(0)    = x_cent(1)  - 2*(x_cent(1)-x_f(1))
+  x_cent(nx+1) = x_cent(nx) + 2*(x_f(nx+1)-x_cent(nx))
+  
+  end subroutine calc_meshgeom
+  
   
   elemental function cross_area(x,L) result(res)
   real(kind=rk),intent(in) :: x, L
