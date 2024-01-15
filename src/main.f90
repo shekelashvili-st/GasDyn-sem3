@@ -12,7 +12,7 @@ program main
   integer                  :: scheme, grani, tvdim=0
   real(kind=rk)            :: L, adi_k, c_P, CFL, dt, t_stop
   real(kind=rk)            :: U_L, U_R, rho_L, rho_R, p_L, p_R
-  real(kind=rk)            :: freq, h
+  real(kind=rk)            :: freq=0, h=0
   integer                  :: nx, nt, L_size, imon, mon_tstep
   !Work arrays & variables
   real(kind=rk),allocatable:: x_cent(:), omega(:), u(:), rho(:), p(:), T(:)
@@ -75,7 +75,7 @@ program main
   time: do k = 1, nt
     if (total_t==t_stop) exit
     !Calculate time step
-    dt = CFL * dx/max_vel(u,rho,p,adi_k)
+    dt = CFL * dx/(max_vel(u,rho,p,adi_k)+abs(2*pi*freq*h))
     if (k<=5) dt = 0.2*dt
     total_t = total_t + dt
     if (total_t>t_stop) then
@@ -102,6 +102,7 @@ program main
         
         !Calculate new volumes and motion in each cell
         call calc_meshgeom(x_f,sigma_f,u_f,omega,x_cent,L,u_left,u_right,dt)
+        call boundary(u,rho,p,T,adi_k,C_p,u_left)
     end if
     
     !Solve for conservative variables

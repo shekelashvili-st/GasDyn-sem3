@@ -9,7 +9,7 @@ module godunov
   real(kind=rk), intent(in):: AK,CP,P1,P2,R1,R2,U1,U2,UDOT
   real(kind=rk)            :: UBIG,PBIG,RBIG1,RBIG2,DL1,DL2,DP1,DP2
   real(kind=rk)            :: Pf, Uf, Rf, CV, RM
-  real(kind=rk)            :: flux(3)
+  real(kind=rk)            :: flux(3), w(3)
   
   RM=CP*(1.0-1.0/AK)
   CV=CP-RM
@@ -21,9 +21,15 @@ module godunov
                 DL1,DL2,DP1,DP2,UDOT,  &
                 Pf,Uf,Rf)
 
+  w(1)   = (R1 + R2)/2
+  w(2)   = (R1*U1 + R2*U2)/2
+  w(3)   = (R1*(CV*P1/(R1*RM) + U1**2/2) + R2*(CV*P2/(R2*RM) + U2**2/2))/2
+  
   flux(1) = Rf*Uf
   flux(2) = Rf*Uf*Uf + Pf
   flux(3) = Rf*Uf* (CP*Pf/(Rf*RM)+Uf*Uf/2) 
+  
+  flux = flux - UDOT*w
   
   end function flux_godunov
   
