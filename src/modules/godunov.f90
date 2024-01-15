@@ -21,9 +21,9 @@ module godunov
                 DL1,DL2,DP1,DP2,UDOT,  &
                 Pf,Uf,Rf)
 
-  w(1)   = (R1 + R2)/2
-  w(2)   = (R1*U1 + R2*U2)/2
-  w(3)   = (R1*(CV*P1/(R1*RM) + U1**2/2) + R2*(CV*P2/(R2*RM) + U2**2/2))/2
+  w(1)   = Rf
+  w(2)   = Rf*Uf
+  w(3)   = Rf*(CV*Pf/(Rf*RM) + Uf**2/2)
   
   flux(1) = Rf*Uf
   flux(2) = Rf*Uf*Uf + Pf

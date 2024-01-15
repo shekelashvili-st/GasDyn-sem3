@@ -1,6 +1,6 @@
 program main
-  use modules, only : rk, init_meshgeom, calc_meshgeom, init_Riemann, max_vel, boundary_walls, boundary_grad, boundary_moveleft
-  use io, only      : output_field, output_monitor
+  use modules, only : rk, init_meshgeom, calc_meshgeom, init_Riemann, max_vel, boundary_walls, boundary_grad, boundary_movewalls
+  use io, only      : output_field, output_monitor, output_monitor_x
   use godunov, only : flux_godunov
   use vanleer, only : flux_vanleer
   use TVD, only     : reconst
@@ -12,7 +12,7 @@ program main
   integer                  :: scheme, grani, tvdim=0
   real(kind=rk)            :: L, adi_k, c_P, CFL, dt, t_stop
   real(kind=rk)            :: U_L, U_R, rho_L, rho_R, p_L, p_R
-  real(kind=rk)            :: freq=0, h=0
+  real(kind=rk)            :: freql=0, hl=0, freqr=0, hr=0
   integer                  :: nx, nt, L_size, imon, mon_tstep
   !Work arrays & variables
   real(kind=rk),allocatable:: x_cent(:), omega(:), u(:), rho(:), p(:), T(:)
@@ -24,6 +24,7 @@ program main
   real(kind=rk)            :: p_tilde(4), u_tilde(4), rho_tilde(4)
   real(kind=rk)            :: u_left=0, u_right=0 
   real(kind=rk),parameter  :: pi=4*atan(1.0_rk)
+  character(len=30)        :: time_str
   !Service variables
   integer                  :: i, k, iu
   !Procedure pointers
@@ -37,7 +38,7 @@ program main
   namelist /params_zad/ L, adi_k, c_p,                &
                     nx, nt, CFL, t_stop, L_size,      &
                     U_L, U_R, rho_L, rho_R,           &
-                    p_L, p_R, freq, h                    
+                    p_L, p_R, freql, hl, freqr, hr                    
   open(newunit=iu, file=input_file)
   read(iu, nml=params)
   close(iu)
@@ -49,7 +50,7 @@ program main
   !Set scheme and boundary conditions
   if (scheme==2) flux=>flux_vanleer
   if (grani==2)  boundary=>boundary_grad
-  if (grani==3)  boundary=>boundary_moveleft
+  if (grani==3)  boundary=>boundary_movewalls
   
   imon = L_size/2
   R_m  = C_p * (1-1.0_rk/adi_k)
@@ -66,16 +67,24 @@ program main
   call init_Riemann(u,rho,p,T,                          &
                     L_size,U_L,U_R,rho_L,rho_R,p_L,p_R, &
                     adi_k,C_p)
-  call boundary(u,rho,p,T,adi_k,C_p,u_left)
+  call boundary(u,rho,p,T,adi_k,C_p,u_left,u_right)
   
   !Open monitor file
   open(newunit=iu,file=(trim(start_file) // monitor_file))
   
   !Solve equation
   time: do k = 1, nt
-    if (total_t==t_stop) exit
+    if (total_t==t_stop) then
+        print*, 'Saving'
+        print*, 'Enter new end time:'
+        write(time_str,'(es10.2)') total_t 
+        !Output solution
+        call output_field(x_cent,u,rho,p,T,trim(start_file) // trim(adjustl(time_str)) // output_file)        
+        read(*,*) t_stop
+        if (t_stop<total_t) exit
+    end if 
     !Calculate time step
-    dt = CFL * dx/(max_vel(u,rho,p,adi_k)+abs(2*pi*freq*h))
+    dt = CFL * dx/(max_vel(u,rho,p,adi_k)+abs(2*pi*freql*hl))
     if (k<=5) dt = 0.2*dt
     total_t = total_t + dt
     if (total_t>t_stop) then
@@ -96,13 +105,13 @@ program main
     RHS(3,:) = 0
     
     !Moving mesh
-    if (grani==3 .or. grani==4) then
-        u_left = 2*pi*freq*h*sin(2*pi*freq*total_t)
-        u_right = 0
+    if (grani==3) then
+        u_left = 2*pi*freql*hl*sin(2*pi*freql*(total_t-dt))
+        u_right = 2*pi*freqr*hr*sin(2*pi*freqr*(total_t-dt))
         
         !Calculate new volumes and motion in each cell
         call calc_meshgeom(x_f,sigma_f,u_f,omega,x_cent,L,u_left,u_right,dt)
-        call boundary(u,rho,p,T,adi_k,C_p,u_left)
+        call boundary(u,rho,p,T,adi_k,C_p,u_left,u_right)
     end if
     
     !Solve for conservative variables
@@ -137,16 +146,14 @@ program main
     u   = w_n(2,:)/rho
     T   = (w_n(3,:)/rho-u**2/2)/C_v
     p   = R_m * T * rho
-    call boundary(u,rho,p,T,adi_k,C_p,u_left)
+    call boundary(u,rho,p,T,adi_k,C_p,u_left,u_right)
     !Monitor points
     if (mod(k,mon_tstep) == 0) then
         if (any(isnan(u))) stop 'Error:NaN'
-        call output_monitor(iu,imon,total_t,u,rho,p,T)
+        call output_monitor_x(iu,0.5_rk,total_t,u,rho,p,T,x_cent)
     end if
   end do time
   
-  !Output solution
-  call output_field(x_cent,u,rho,p,T,trim(start_file) // output_file)
   !Close monitor file
   close(iu)
 

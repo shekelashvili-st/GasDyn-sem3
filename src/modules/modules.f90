@@ -37,10 +37,10 @@ module modules
   
   end function max_vel  
   
-  subroutine boundary_walls(u,rho,p,T,adi_k,C_p,u_l)
+  subroutine boundary_walls(u,rho,p,T,adi_k,C_p,u_l,u_r)
   real(kind=rk),intent(inout) :: u(0:), rho(0:), p(0:), T(0:)
   real(kind=rk),intent(in)    :: adi_k, C_p
-  real(kind=rk),intent(in)    :: u_l
+  real(kind=rk),intent(in)    :: u_l, u_r
   integer                     :: nx
   real(kind=rk)               :: R_m
   
@@ -61,10 +61,10 @@ module modules
   
   end subroutine boundary_walls
   
-  subroutine boundary_moveleft(u,rho,p,T,adi_k,C_p,u_l)
+  subroutine boundary_moveleft(u,rho,p,T,adi_k,C_p,u_l,u_r)
   real(kind=rk),intent(inout) :: u(0:), rho(0:), p(0:), T(0:)
   real(kind=rk),intent(in)    :: adi_k, C_p
-  real(kind=rk),intent(in)    :: u_l
+  real(kind=rk),intent(in)    :: u_l, u_r
   integer                     :: nx
   real(kind=rk)               :: R_m
   
@@ -85,10 +85,34 @@ module modules
   
   end subroutine boundary_moveleft
   
-  subroutine boundary_grad(u,rho,p,T,adi_k,C_p,u_l)
+  subroutine boundary_movewalls(u,rho,p,T,adi_k,C_p,u_l,u_r)
   real(kind=rk),intent(inout) :: u(0:), rho(0:), p(0:), T(0:)
   real(kind=rk),intent(in)    :: adi_k, C_p
-  real(kind=rk),intent(in)    :: u_l
+  real(kind=rk),intent(in)    :: u_l, u_r
+  integer                     :: nx
+  real(kind=rk)               :: R_m
+  
+  nx  = size(u)-2
+  R_m = C_p*(1-1.0_rk/adi_k)
+  
+  !По скорости - скорость поршня на грани
+  u(0)      = 2*u_l-u(1)
+  u(nx+1)   = 2*u_r-u(nx)
+  !По давлению - нулевой градиент
+  p(0)      = p(1)
+  p(nx+1)   = p(nx)
+  !По плотности - нулевой градиент
+  rho(0)    = rho(1)
+  rho(nx+1) = rho(nx)
+  !По температуре - расчёт из плотности, давления
+  T         = p/(rho*R_m)
+  
+  end subroutine boundary_movewalls
+  
+  subroutine boundary_grad(u,rho,p,T,adi_k,C_p,u_l,u_r)
+  real(kind=rk),intent(inout) :: u(0:), rho(0:), p(0:), T(0:)
+  real(kind=rk),intent(in)    :: adi_k, C_p
+  real(kind=rk),intent(in)    :: u_l, u_r
   integer                     :: nx
   real(kind=rk)               :: R_m
   
@@ -136,7 +160,7 @@ module modules
   !Расчёт скорости каждой каждой грани
   u_f(1:nx+1) = u_l + (u_r-u_l)/(x_f(nx+1)-x_f(1))*(x_f(1:nx+1)-x_f(1))
   !Перемещение граней
-  x_f(1:nx+1) = x_f(:) + dt*u_f(1:nx+1)
+  x_f(1:nx+1) = x_f(1:nx+1) + dt*u_f(1:nx+1)
   !Объём как площадь трапеции
   omega(1:nx)   = (sigma_f(1:nx)+sigma_f(2:nx+1))/2 * (x_f(2:nx+1)-x_f(1:nx))
   omega(0)      = 0 ; omega(nx+1)       = 0
