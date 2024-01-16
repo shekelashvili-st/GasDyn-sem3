@@ -12,7 +12,7 @@ program main
   integer                  :: scheme, grani, tvdim=0
   real(kind=rk)            :: L, adi_k, c_P, CFL, dt, t_stop
   real(kind=rk)            :: U_L, U_R, rho_L, rho_R, p_L, p_R
-  real(kind=rk)            :: freql=0, hl=0, freqr=0, hr=0
+  real(kind=rk)            :: freql=0, hl=0, freqr=0, hr=0, phaser=0
   integer                  :: nx, nt, L_size, imon, mon_tstep
   !Work arrays & variables
   real(kind=rk),allocatable:: x_cent(:), omega(:), u(:), rho(:), p(:), T(:)
@@ -38,7 +38,7 @@ program main
   namelist /params_zad/ L, adi_k, c_p,                &
                     nx, nt, CFL, t_stop, L_size,      &
                     U_L, U_R, rho_L, rho_R,           &
-                    p_L, p_R, freql, hl, freqr, hr                    
+                    p_L, p_R, freql, hl, freqr, hr, phaser                    
   open(newunit=iu, file=input_file)
   read(iu, nml=params)
   close(iu)
@@ -107,7 +107,7 @@ program main
     !Moving mesh
     if (grani==3) then
         u_left = 2*pi*freql*hl*sin(2*pi*freql*(total_t-dt))
-        u_right = 2*pi*freqr*hr*sin(2*pi*freqr*(total_t-dt))
+        u_right = 2*pi*freqr*hr*sin(2*pi*freqr*(total_t-dt)+phaser*pi/180)
         
         !Calculate new volumes and motion in each cell
         call calc_meshgeom(x_f,sigma_f,u_f,omega,x_cent,L,u_left,u_right,dt)
